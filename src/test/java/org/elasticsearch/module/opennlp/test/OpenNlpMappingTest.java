@@ -17,8 +17,16 @@
  */
 package org.elasticsearch.module.opennlp.test;
 
+import static org.elasticsearch.common.io.Streams.copyToStringFromClasspath;
+import static org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder;
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.*;
+
+import java.io.IOException;
+import java.util.Map;
+
 import org.apache.lucene.analysis.core.KeywordAnalyzer;
-import org.apache.lucene.document.Document;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.collect.Maps;
 import org.elasticsearch.common.logging.log4j.LogConfigurator;
@@ -29,24 +37,16 @@ import org.elasticsearch.index.analysis.AnalysisService;
 import org.elasticsearch.index.analysis.AnalyzerProviderFactory;
 import org.elasticsearch.index.analysis.AnalyzerScope;
 import org.elasticsearch.index.analysis.PreBuiltAnalyzerProviderFactory;
+import org.elasticsearch.index.codec.docvaluesformat.DocValuesFormatService;
 import org.elasticsearch.index.codec.postingsformat.PostingsFormatService;
 import org.elasticsearch.index.mapper.DocumentMapper;
 import org.elasticsearch.index.mapper.DocumentMapperParser;
+import org.elasticsearch.index.mapper.ParseContext.Document;
 import org.elasticsearch.index.mapper.opennlp.OpenNlpMapper;
 import org.elasticsearch.index.similarity.SimilarityLookupService;
 import org.elasticsearch.service.opennlp.OpenNlpService;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.io.IOException;
-import java.util.Map;
-
-import static org.elasticsearch.common.io.Streams.copyToStringFromClasspath;
-import static org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.is;
 
 public class OpenNlpMappingTest {
 
@@ -60,13 +60,15 @@ public class OpenNlpMappingTest {
         analyzerFactoryFactories.put("keyword", new PreBuiltAnalyzerProviderFactory("keyword", AnalyzerScope.INDEX, new KeywordAnalyzer()));
         AnalysisService analysisService = new AnalysisService(index, ImmutableSettings.Builder.EMPTY_SETTINGS, null, analyzerFactoryFactories, null, null, null);
 
-        mapperParser = new DocumentMapperParser(index, analysisService, new PostingsFormatService(index),
-                new SimilarityLookupService(index, ImmutableSettings.Builder.EMPTY_SETTINGS));
         Settings settings = settingsBuilder()
                 .put("opennlp.models.name.file", "src/test/resources/models/en-ner-person.bin")
                 .put("opennlp.models.date.file", "src/test/resources/models/en-ner-date.bin")
                 .put("opennlp.models.location.file", "src/test/resources/models/en-ner-location.bin")
                 .build();
+
+        mapperParser = new DocumentMapperParser(index, settings, analysisService, new PostingsFormatService(index),
+                new DocValuesFormatService(index, settings),
+                new SimilarityLookupService(index, ImmutableSettings.Builder.EMPTY_SETTINGS));
 
         LogConfigurator.configure(settings);
 

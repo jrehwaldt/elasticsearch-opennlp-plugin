@@ -17,11 +17,23 @@
  */
 package org.elasticsearch.service.opennlp;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import opennlp.tools.namefind.NameFinderME;
 import opennlp.tools.namefind.TokenNameFinderModel;
 import opennlp.tools.tokenize.SimpleTokenizer;
 import opennlp.tools.util.Span;
-import org.elasticsearch.ElasticSearchException;
+
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.StopWatch;
 import org.elasticsearch.common.base.Joiner;
 import org.elasticsearch.common.collect.Maps;
@@ -32,37 +44,31 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.service.opennlp.models.PooledTokenNameFinderModel;
 import org.elasticsearch.service.opennlp.models.TextAnnotation;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
 public class OpenNlpService extends AbstractLifecycleComponent<OpenNlpService> {
 
     private static Map<String, TokenNameFinderModel> finders = Maps.newHashMap();
 
-    @Inject public OpenNlpService(Settings settings) {
+    @Inject
+    public OpenNlpService(Settings settings) {
         super(settings);
     }
 
     @Override
-    protected void doStart() throws ElasticSearchException {
+    protected void doStart() throws ElasticsearchException {
         CountDownLatch countDownLatch = new CountDownLatch(3);
         new Thread(new LoaderRunnable(settings, "opennlp.models.name.file", "name",  countDownLatch)).start();
         new Thread(new LoaderRunnable(settings, "opennlp.models.date.file", "date",  countDownLatch)).start();
         new Thread(new LoaderRunnable(settings, "opennlp.models.location.file", "location",  countDownLatch)).start();
         try {
             countDownLatch.await(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {}
+        } catch (InterruptedException ex) {}
     }
 
     @Override
-    protected void doStop() throws ElasticSearchException {}
+    protected void doStop() throws ElasticsearchException {}
 
     @Override
-    protected void doClose() throws ElasticSearchException {}
+    protected void doClose() throws ElasticsearchException {}
 
     class LoaderRunnable implements Runnable {
 
@@ -94,7 +100,7 @@ public class OpenNlpService extends AbstractLifecycleComponent<OpenNlpService> {
 
             StopWatch sw = new StopWatch("Loading model " + filePath).start();
             try {
-                finders.put(type, 
+                finders.put(type,
                         new PooledTokenNameFinderModel(
                                 new FileInputStream(modelFile)));
             } catch (IOException e) {
